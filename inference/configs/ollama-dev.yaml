@@ -1,0 +1,27 @@
+# Development backend profile - real, discovered facts (blueprint section 2.4).
+# Ollama manages its own model storage; there is no weights mount or memory-fraction
+# argument to set here the way there is for vLLM.
+
+alias: campus-coder
+backend: ollama-dev
+
+model_ref: llama3:8b-instruct-q4_K_M
+served_model_name: llama3:8b-instruct-q4_K_M
+quantization: q4_K_M            # GGUF, as packaged by Ollama's library
+dtype: null                     # not an Ollama argument
+max_model_len: null             # UNKNOWN - MUST BE VERIFIED: Ollama's effective context
+                                 # window for this model was not probed at long context in
+                                 # this pass; do not assume the architecture's max.
+gpu_memory_utilization: null    # not an Ollama argument; Ollama manages its own VRAM use
+extra_args: []
+
+verified_on_image: "ollama/ollama 0.16.3 (host install, not containerized)"
+verified_at: "2026-08-12"
+notes: >
+  Discovered via `ollama list` / `ollama show`, never assumed. Verified endpoints:
+  GET /v1/models (works), POST /v1/chat/completions non-streaming (works, reports usage),
+  POST /v1/chat/completions stream=true (works, SSE terminated by "data: [DONE]"),
+  POST /v1/responses (works - full Responses-API-shaped JSON returned). Tool calling is
+  NOT supported by this specific model: the backend returns
+  {"error":{"message":"... does not support tools", ...}}. See docs/operations/dev-backend.md
+  for the full record and exact commands run.

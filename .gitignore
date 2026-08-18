@@ -1,0 +1,46 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Model weights - never enter Git (PRD Appendix D rule 3)
+*.safetensors
+*.gguf
+*.bin
+*.pt
+*.pth
+models/
+model-cache/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+.venv-build/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# Node (for any client tooling)
+node_modules/
+
+# Docker / local state
+*.log
+docker-compose.override.yaml
+
+# Database local volumes if ever bind-mounted
+pgdata/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Benchmarks scratch (real results stay in docs/benchmarks, not scratch dumps)
+*.bench.tmp

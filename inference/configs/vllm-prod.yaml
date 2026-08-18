@@ -1,0 +1,27 @@
+# Production backend profile - PLACEHOLDER. Not usable until docs/operations/host-setup-beast.md
+# is closed and a candidate model passes the compatibility preflight (blueprint section 22.2)
+# on the real RTX 5060 Ti 16GB. Every runtime-critical value below is intentionally left
+# UNKNOWN rather than guessed. Do not start lara-inference with this file until every
+# UNKNOWN is replaced with a verified value and verified_on_image / verified_at are filled in.
+
+alias: campus-coder          # placeholder alias; may end up pointing at ollama-dev until
+                              # this profile is real, per the registry's alias-not-backend
+                              # indirection (blueprint section 22.1)
+backend: vllm-prod
+
+model_ref: "UNKNOWN_MUST_BE_VERIFIED"       # candidate chosen by benchmark, not by this file
+served_model_name: "UNKNOWN_MUST_BE_VERIFIED"
+quantization: "UNKNOWN_MUST_BE_VERIFIED"    # which quantization kernel this GPU generation
+                                             # actually supports on the pinned vLLM version
+dtype: "UNKNOWN_MUST_BE_VERIFIED"
+max_model_len: null              # MUST BE BENCHMARKED ON PRODUCTION HARDWARE
+gpu_memory_utilization: null     # MUST BE BENCHMARKED ON PRODUCTION HARDWARE
+extra_args: []                   # e.g. tool-call parser flags, once verified supported
+
+verified_on_image: null          # UNKNOWN - MUST BE VERIFIED (docs/operations/host-setup-beast.md step 7)
+verified_at: null
+notes: >
+  Not loaded, not tested, not selected. This file exists so the switch runbook
+  (docs/operations/model-switch.md, scripts/model.sh) has a real target to fill in once
+  the beast is available, without inventing any runtime argument in advance
+  (PRD Appendix D rule 3 / master task 9).

@@ -1,0 +1,115 @@
+name: lara
+
+# Services are added incrementally as each session's blueprint chapter is implemented
+# (see Docs/LARA_7_Session_Implementation_Reference.md section 3 and the plan this repo
+# followed). Network topology matches the security boundary in blueprint section 3.2:
+#   lara_edge - carries public traffic to the gateway and nothing else
+#   lara_core - internal-only service plane; no route off the host
+
+services:
+  lara-database:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - lara_pgdata:/var/lib/postgresql/data
+    networks: [lara_core]
+    # No published port, in dev or prod. Blueprint section 3.3 permits a loopback-only dev
+    # binding, but local inspection needs are fully covered by
+    # `docker compose exec lara-database psql -U $POSTGRES_USER -d $POSTGRES_DB`, which
+    # needs no port at all - so none is opened, in either environment (fewer things for
+    # Session 6's port audit to ever have to catch).
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  lara-gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    env_file: .env
+    extra_hosts:
+      # Verified for this dev machine (native Linux Docker, not WSL2/Docker Desktop) -
+      # see docs/operations/dev-backend.md for how this was tested and why it's needed.
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      lara-database:
+        condition: service_healthy
+    networks: [lara_core, lara_edge]
+    ports:
+      - "127.0.0.1:8080:8080"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    logging:
+      driver: json-file
+      options: { max-size: "50m", max-file: "5" }
+    command: >
+      sh -c "alembic upgrade head &&
+             python -m database.seed.seed &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8080 --workers 1"
+
+  lara-telemetry:
+    # NVML/system sampler (blueprint section 21.7, Session 7). Blueprint's own compose
+    # skeleton (section 3.4) restricts this to profiles: ["prod"] - DELIBERATE ADAPTATION
+    # here: also included in "dev", since validating the pressure evaluator and the retention
+    # pipeline meaningfully needs real samples on this development machine too (documented in
+    # the plan this repo followed; see docs/architecture/telemetry.md).
+    build:
+      context: .
+      dockerfile: monitoring/Dockerfile
+    env_file: .env
+    profiles: ["dev", "prod"]
+    depends_on:
+      lara-database:
+        condition: service_healthy
+    networks: [lara_core]
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "3" }
+
+  lara-cloudflared:
+    # Outbound-only tunnel (blueprint section 6, Session 6). Never started by default - only
+    # under the "tunnel" profile, and only once CLOUDFLARE_TUNNEL_TOKEN is real
+    # (docs/operations/tunnel.md). Routes to lara-gateway only; never to lara-inference,
+    # lara-database, or any other internal service (blueprint section 3.3 / 16.3).
+    image: cloudflare/cloudflared:2024.12.2
+    profiles: ["tunnel"]
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    networks: [lara_edge]
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "3" }
+
+  lara-stub-backend:
+    # Deterministic OpenAI-compatible stub used only by tests/load - see
+    # tests/load/stub_backend/app.py for why: real Ollama generation time varies with load,
+    # which makes an exact "3 running, 7 queued" assertion flaky. Never started outside the
+    # test profile, never a production dependency.
+    build:
+      context: tests/load/stub_backend
+    profiles: ["test"]
+    environment:
+      LARA_STUB_DELAY_S: "2.0"
+    networks: [lara_core]
+    restart: "no"
+
+networks:
+  lara_core:
+    internal: true
+  lara_edge: {}
+
+volumes:
+  lara_pgdata: {}
