@@ -7,6 +7,7 @@ Prerequisite: `docker compose up -d` with a healthy lara-gateway on 127.0.0.1:80
 
 from __future__ import annotations
 
+from pathlib import Path
 import json
 import subprocess
 import uuid
@@ -47,7 +48,7 @@ def admin_key() -> str:
         capture_output=True,
         text=True,
         check=True,
-        cwd=__file__.rsplit("/tests/", 1)[0],
+        cwd=str(Path(__file__).parent),
     )
     for line in result.stdout.splitlines():
         line = line.strip()

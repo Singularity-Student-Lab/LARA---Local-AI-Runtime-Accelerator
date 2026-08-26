@@ -93,6 +93,39 @@ services:
       driver: json-file
       options: { max-size: "20m", max-file: "3" }
 
+  lara-inference:
+    # vLLM inference service. PRODUCTION ONLY: requires GPU passthrough (RTX 5060 Ti 16GB+
+    # or equivalent). Do not start under "dev" profile on GPU-less hardware.
+    # Build context points to inference/Dockerfile which installs vLLM and configures
+    # the runtime to use the available GPU. See inference/Dockerfile for details.
+    build:
+      context: .
+      dockerfile: inference/Dockerfile
+    env_file: .env
+    profiles: ["prod"]  # ONLY starts with COMPOSE_PROFILES=prod
+    # GPU device passthrough - must be matched with --gpus all or --gpus '"device=..."'
+    # on docker compose up. Without a physical NVIDIA GPU this service will fail to start.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks: [lara_core, lara_edge]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    logging:
+      driver: json-file
+      options: { max-size: "50m", max-file: "3" }
+    command: >
+      sh -c "pip install --quiet -r requirements.txt &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1"
+
   lara-stub-backend:
     # Deterministic OpenAI-compatible stub used only by tests/load - see
     # tests/load/stub_backend/app.py for why: real Ollama generation time varies with load,
